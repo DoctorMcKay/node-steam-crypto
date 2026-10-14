@@ -40,12 +40,11 @@ exports.symmetricEncrypt = function(input, key, iv) {
 	iv = iv || Crypto.randomBytes(16);
 	var aesIv = Crypto.createCipheriv('aes-256-ecb', key, '');
 	aesIv.setAutoPadding(false);
-	aesIv.end(iv);
+	var encryptedIv = Buffer.concat([aesIv.update(iv), aesIv.final()]);
 
 	var aesData = Crypto.createCipheriv('aes-256-cbc', key, iv);
-	aesData.end(input);
 
-	return Buffer.concat([aesIv.read(), aesData.read()]);
+	return Buffer.concat([encryptedIv, aesData.update(input), aesData.final()]);
 };
 
 /**
@@ -73,12 +72,10 @@ exports.symmetricEncryptWithHmacIv = function(input, key) {
 exports.symmetricDecrypt = function(input, key, checkHmac) {
 	var aesIv = Crypto.createDecipheriv('aes-256-ecb', key, '');
 	aesIv.setAutoPadding(false);
-	aesIv.end(input.slice(0, 16));
-	var iv = aesIv.read();
+	var iv = Buffer.concat([aesIv.update(input.slice(0, 16)), aesIv.final()]);
 
 	var aesData = Crypto.createDecipheriv('aes-256-cbc', key, iv);
-	aesData.end(input.slice(16));
-	var plaintext = aesData.read();
+	var plaintext = Buffer.concat([aesData.update(input.slice(16)), aesData.final()]);
 
 	if (checkHmac) {
 		// The last 3 bytes of the IV are a random value, and the remainder are a partial HMAC
@@ -103,6 +100,5 @@ exports.symmetricDecrypt = function(input, key, checkHmac) {
  */
 exports.symmetricDecryptECB = function(input, key) {
 	var decipher = Crypto.createDecipheriv('aes-256-ecb', key, '');
-	decipher.end(input);
-	return decipher.read();
+	return Buffer.concat([decipher.update(input), decipher.final()]);
 };
